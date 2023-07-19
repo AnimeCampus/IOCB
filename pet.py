@@ -4,9 +4,9 @@ from pyrogram import Client, filters, idle
 from pyrogram.types import Message
 
 # Initialize the Pyrogram client and connect to the Telegram Bot API
-api_id = YOUR_API_ID
-api_hash = 'YOUR_API_HASH'
-bot_token = 'YOUR_BOT_TOKEN'
+api_id =  16743442
+api_hash = '12bbd720f4097ba7713c5e40a11dfd2a'
+bot_token = '6377102011:AAHJJ7AUKZhQKcAnHPQtjg9put5mG8vSjEc'
 
 app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
