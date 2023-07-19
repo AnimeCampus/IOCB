@@ -12,26 +12,13 @@ app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
 # Initialize the SQLite database
 db_file = "pet_bot.db"
-conn = sqlite3.connect(db_file)
-cursor = conn.cursor()
-
-# Create a table to store pet data
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS pets (
-    user_id INTEGER PRIMARY KEY,
-    name TEXT,
-    health INTEGER,
-    hunger INTEGER,
-    happiness INTEGER
-)
-""")
-conn.commit()
 
 # Define the virtual pet class
 class Pet:
-    def __init__(self, user_id, name):
+    def __init__(self, user_id, name, pet_type):
         self.user_id = user_id
         self.name = name
+        self.pet_type = pet_type
         self.health = 100
         self.hunger = 0
         self.happiness = 100
@@ -52,116 +39,147 @@ class Pet:
         if self.happiness > 100:
             self.happiness = 100
 
-# Define command handlers
-@app.on_message(filters.command("start"))
-def start(bot, message):
-    bot.send_message(
-        message.chat.id,
-        "Hello! I am your virtual pet bot. Use /adopt <pet_name> to adopt a pet."
-    )
+# Helper function to create the pets table if it doesn't exist
+def create_pets_table():
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
 
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pets (
+            user_id INTEGER PRIMARY KEY,
+            name TEXT,
+            pet_type TEXT,
+            health INTEGER,
+            hunger INTEGER,
+            happiness INTEGER
+        )
+        """)
+        conn.commit()
 
-# Define a list of suggested pet names
-suggested_names = ["Buddy", "Fluffy", "Charlie", "Luna", "Max", "Coco", "Oliver", "Daisy", "Tom"]
+# Command to show the user's current pet's name and type
+@app.on_message(filters.command("store"))
+def show_pet_store(bot, message):
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
 
-# Help command
-@app.on_message(filters.command("help"))
-def show_help(bot, message):
-    help_text = """Available commands:
-/adopt <pet_name> - Adopt a virtual pet.
-/feed - Feed your pet.
-/play - Play with your pet.
-/status - Check your pet's status.
-/help - Show this help message."""
-    bot.send_message(message.chat.id, help_text)
+        user_id = message.from_user.id
+        cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
+        pet_data = cursor.fetchone()
 
-# Adopt a pet with a suggested name
+        if not pet_data:
+            bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> <dog|cat|other> to adopt one.")
+            return
+
+        pet_name, pet_type = pet_data[1], pet_data[2]
+        bot.send_message(message.chat.id, f"Your current pet: {pet_name} ({pet_type.capitalize()})")
+
+# Command to adopt a pet with a suggested name and type
 @app.on_message(filters.command("adopt"))
 def adopt_pet(bot, message):
-    if len(message.command) < 2:
-        bot.send_message(message.chat.id, "Please provide a name for your pet. Use /adopt <pet_name>.")
+    if len(message.command) < 3:
+        bot.send_message(message.chat.id, "Please provide both a name and a type for your pet. Use /adopt <pet_name> <dog|cat|other>.")
         return
 
     pet_name = message.command[1]
+    pet_type = message.command[2].lower()
     user_id = message.from_user.id
 
-    # Check if the user already has a pet
-    cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
-    existing_pet = cursor.fetchone()
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
 
-    if existing_pet:
-        bot.send_message(message.chat.id, "You already have a pet.")
-    else:
-        if pet_name.lower() in [name.lower() for name in suggested_names]:
-            new_pet = Pet(user_id, pet_name)
+        # Check if the user already has a pet
+        cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
+        existing_pet = cursor.fetchone()
+
+        if existing_pet:
+            bot.send_message(message.chat.id, "You already have a pet.")
         else:
-            bot.send_message(
-                message.chat.id,
-                f"The name '{pet_name}' is not in the list of suggested names. Choose from: {', '.join(suggested_names)}"
-            )
-            return
+            new_pet = Pet(user_id, pet_name, pet_type)
+            cursor.execute("INSERT INTO pets VALUES (?, ?, ?, ?, ?, ?)", (user_id, pet_name, pet_type, new_pet.health, new_pet.hunger, new_pet.happiness))
+            conn.commit()
+            bot.send_message(message.chat.id, f"Congratulations! You adopted a {pet_type} named {pet_name}.")
 
-        cursor.execute("INSERT INTO pets VALUES (?, ?, ?, ?, ?)", (user_id, pet_name, new_pet.health, new_pet.hunger, new_pet.happiness))
-        conn.commit()
-        bot.send_message(message.chat.id, f"Congratulations! You adopted a pet named {pet_name}.")
-
-# Feed the pet
+# Command to feed the pet
 @app.on_message(filters.command("feed"))
 def feed_pet(bot, message):
-    user_id = message.from_user.id
-    cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
-    pet_data = cursor.fetchone()
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
 
-    if not pet_data:
-        bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> to adopt one.")
-        return
+        user_id = message.from_user.id
+        cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
+        pet_data = cursor.fetchone()
 
-    pet = Pet(pet_data[0], pet_data[1])
-    pet.feed()
+        if not pet_data:
+            bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> <dog|cat|other> to adopt one.")
+            return
 
-    cursor.execute("UPDATE pets SET hunger=?, happiness=? WHERE user_id=?", (pet.hunger, pet.happiness, user_id))
-    conn.commit()
+        pet = Pet(pet_data[0], pet_data[1], pet_data[2])
+        pet.feed()
 
-    bot.send_message(message.chat.id, f"{pet.name} has been fed. Hunger: {pet.hunger}, Happiness: {pet.happiness}")
+        cursor.execute("UPDATE pets SET hunger=?, happiness=? WHERE user_id=?", (pet.hunger, pet.happiness, user_id))
+        conn.commit()
 
-# Play with the pet
+        bot.send_message(message.chat.id, f"{pet.name} has been fed. Hunger: {pet.hunger}, Happiness: {pet.happiness}")
+
+# Command to show the available commands and their usage
+@app.on_message(filters.command("help"))
+def show_help(bot, message):
+    help_text = """Available commands:
+/adopt <pet_name> <dog|cat|other> - Adopt a virtual pet.
+/feed - Feed your pet.
+/play - Play with your pet.
+/status - Check your pet's status.
+/store - Show your current pet's name and type.
+/help - Show this help message."""
+    bot.send_message(message.chat.id, help_text)
+
+# Command to play with the pet
 @app.on_message(filters.command("play"))
 def play_with_pet(bot, message):
-    user_id = message.from_user.id
-    cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
-    pet_data = cursor.fetchone()
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
 
-    if not pet_data:
-        bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> to adopt one.")
-        return
+        user_id = message.from_user.id
+        cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
+        pet_data = cursor.fetchone()
 
-    pet = Pet(pet_data[0], pet_data[1])
-    pet.play()
+        if not pet_data:
+            bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> <dog|cat|other> to adopt one.")
+            return
 
-    cursor.execute("UPDATE pets SET hunger=?, happiness=? WHERE user_id=?", (pet.hunger, pet.happiness, user_id))
-    conn.commit()
+        pet = Pet(pet_data[0], pet_data[1], pet_data[2])
+        pet.play()
 
-    bot.send_message(message.chat.id, f"{pet.name} is happy! Hunger: {pet.hunger}, Happiness: {pet.happiness}")
+        cursor.execute("UPDATE pets SET hunger=?, happiness=? WHERE user_id=?", (pet.hunger, pet.happiness, user_id))
+        conn.commit()
 
-# Check the pet's status
+        bot.send_message(message.chat.id, f"{pet.name} is happy! Hunger: {pet.hunger}, Happiness: {pet.happiness}")
+
+# Command to check the pet's status
 @app.on_message(filters.command("status"))
 def check_pet_status(bot, message):
-    user_id = message.from_user.id
-    cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
-    pet_data = cursor.fetchone()
+    with sqlite3.connect(db_file) as conn:
+        cursor = conn.cursor()
 
-    if not pet_data:
-        bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> to adopt one.")
-        return
+        user_id = message.from_user.id
+        cursor.execute("SELECT * FROM pets WHERE user_id=?", (user_id,))
+        pet_data = cursor.fetchone()
 
-    pet = Pet(pet_data[0], pet_data[1])
+        if not pet_data:
+            bot.send_message(message.chat.id, "You don't have a pet yet. Use /adopt <pet_name> <dog|cat|other> to adopt one.")
+            return
 
-    bot.send_message(
-        message.chat.id,
-        f"Pet Name: {pet.name}\nHealth: {pet.health}\nHunger: {pet.hunger}\nHappiness: {pet.happiness}"
-    )
+        pet = Pet(pet_data[0], pet_data[1], pet_data[2])
+
+        bot.send_message(
+            message.chat.id,
+            f"Pet Name: {pet.name}\nType: {pet.pet_type.capitalize()}\nHealth: {pet.health}\nHunger: {pet.hunger}\nHappiness: {pet.happiness}"
+        )
 
 # ... Add other commands and features as needed ...
+
+# Create the pets table if it doesn't exist
+create_pets_table()
 
 # Run the bot
 app.run()
