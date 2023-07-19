@@ -60,8 +60,28 @@ def start(bot, message):
         "Hello! I am your virtual pet bot. Use /adopt <pet_name> to adopt a pet."
     )
 
+
+# Define a list of suggested pet names
+suggested_names = ["Buddy", "Fluffy", "Charlie", "Luna", "Max", "Coco", "Oliver", "Daisy", "Tom"]
+
+# Help command
+@app.on_message(filters.command("help"))
+def show_help(bot, message):
+    help_text = """Available commands:
+/adopt <pet_name> - Adopt a virtual pet.
+/feed - Feed your pet.
+/play - Play with your pet.
+/status - Check your pet's status.
+/help - Show this help message."""
+    bot.send_message(message.chat.id, help_text)
+
+# Adopt a pet with a suggested name
 @app.on_message(filters.command("adopt"))
 def adopt_pet(bot, message):
+    if len(message.command) < 2:
+        bot.send_message(message.chat.id, "Please provide a name for your pet. Use /adopt <pet_name>.")
+        return
+
     pet_name = message.command[1]
     user_id = message.from_user.id
 
@@ -72,11 +92,18 @@ def adopt_pet(bot, message):
     if existing_pet:
         bot.send_message(message.chat.id, "You already have a pet.")
     else:
-        new_pet = Pet(user_id, pet_name)
+        if pet_name.lower() in [name.lower() for name in suggested_names]:
+            new_pet = Pet(user_id, pet_name)
+        else:
+            bot.send_message(
+                message.chat.id,
+                f"The name '{pet_name}' is not in the list of suggested names. Choose from: {', '.join(suggested_names)}"
+            )
+            return
+
         cursor.execute("INSERT INTO pets VALUES (?, ?, ?, ?, ?)", (user_id, pet_name, new_pet.health, new_pet.hunger, new_pet.happiness))
         conn.commit()
         bot.send_message(message.chat.id, f"Congratulations! You adopted a pet named {pet_name}.")
-
 
 # Feed the pet
 @app.on_message(filters.command("feed"))
