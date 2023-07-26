@@ -5,7 +5,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 TELEGRAM_BOT_TOKEN = "6126511065:AAHLPF8CuwowgQm9NaYK_vR_caAD_c0tCxg"
 
 # Replace with your Judge0 API endpoint
-JUDGE0_API_URL = "https://api.judge0.com"
+JUDGE0_API_URL = "https://ce.judge0.com/submissions"
 
 # Language ID mapping for Judge0 API
 LANGUAGES = {
