@@ -2,7 +2,7 @@ import requests
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 # Replace with your Telegram bot token
-TELEGRAM_BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+TELEGRAM_BOT_TOKEN = "6126511065:AAHLPF8CuwowgQm9NaYK_vR_caAD_c0tCxg"
 
 # Replace with your Judge0 API endpoint
 JUDGE0_API_URL = "https://api.judge0.com"
