@@ -2,7 +2,7 @@ import requests
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 # Replace with your Telegram bot token
-TELEGRAM_BOT_TOKEN = "6126511065:AAHLPF8CuwowgQm9NaYK_vR_caAD_c0tCxg
+TELEGRAM_BOT_TOKEN = "6126511065:AAHLPF8CuwowgQm9NaYK_vR_caAD_c0tCxg"
 
 # Language ID mapping for Judge0 API
 LANGUAGES = {
