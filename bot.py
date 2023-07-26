@@ -2,10 +2,7 @@ import requests
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 # Replace with your Telegram bot token
-TELEGRAM_BOT_TOKEN = "6126511065:AAHLPF8CuwowgQm9NaYK_vR_caAD_c0tCxg"
-
-# Replace with your Judge0 API endpoint
-JUDGE0_API_URL = "https://ce.judge0.com/submissions"
+TELEGRAM_BOT_TOKEN = "6126511065:AAHLPF8CuwowgQm9NaYK_vR_caAD_c0tCxg
 
 # Language ID mapping for Judge0 API
 LANGUAGES = {
@@ -41,7 +38,7 @@ def compile_code(update, context):
     language_id = LANGUAGES[language]
 
     # Compile code using Judge0 API
-    response = requests.post(f"{JUDGE0_API_URL}/submissions/?wait=true", json={
+    response = requests.post(f"https://ce.judge0.com/submissions/?base64_encoded=false&wait=false", json={
         "source_code": user_code,
         "language_id": language_id,
     })
